@@ -2,6 +2,8 @@ import System.IO
 import System.Environment
 import Text.Read
 
+import Data.Char (isDigit, isAlpha, isAlphaNum, isSpace)
+
 data Literal = Num Int | Boolean Bool deriving (Show)
 data Op = PLUS | MINUS | OR | AND deriving (Show)
 
@@ -13,32 +15,30 @@ data Node
     | Bad
     deriving (Show)
 
-parse :: [Token] -> Node
-parse [] = Bad
-parse (Invalid : _) = Bad
-parse [TokLit n] = Lit n
-parse (TokLit n : TokOp o : rest) = BinOp o (Lit n) (parse rest)
-parse _ = Bad
+------------- LEXER ------------- 
+-- span :: (a -> Bool) -> [a] -> ([a], [a])
 
-lexOne :: String -> Token
-lexOne str = 
-    case (readMaybe str :: Maybe Int) of
-       Just x -> TokLit (Num x)
-       _ -> case str of
-               "true" -> TokLit (Boolean True)
-               "false" -> TokLit (Boolean False)
-               "-" -> TokOp MINUS
-               "+" -> TokOp PLUS
-               "|" -> TokOp OR
-               "&" -> TokOp AND
-               _ -> Invalid
-
-lexAll :: [String] -> [Token]
-lexAll raw = map lexOne raw 
+lexAll :: String -> [Token]
+lexAll str
+    | null str = []
+    | (head str == '+') =  TokOp PLUS : lexAll (tail str)
+    | (head str == '-') =  TokOp MINUS : lexAll (tail str)
+    | (head str == '|') =  TokOp OR : lexAll (tail str)
+    | (head str == '&') =  TokOp AND : lexAll (tail str)
+    | isSpace (head str) = lexAll (tail str)
+    | isDigit (head str) =
+        let (pref, suff) = span isDigit str in
+        let tokInt = read pref :: Int in
+            (TokLit (Num tokInt)) : (lexAll suff)
+    | isAlpha (head str) = 
+        let (pref, suff) = span isAlphaNum str in
+        if pref == "false" then TokLit (Boolean False) : lexAll suff
+        else if pref == "true" then TokLit (Boolean True) : lexAll suff
+        else Invalid : lexAll suff
 
 main :: IO ()
 main = do
     args <- getArgs
     case args of
-        [s] -> print (parse (lexAll (words s)))
+        [s] -> print (lexAll s)
         _ -> putStrLn "wrong"
