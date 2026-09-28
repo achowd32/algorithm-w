@@ -32,13 +32,22 @@ lexAll str
             (TokLit (Num tokInt)) : (lexAll suff)
     | isAlpha (head str) = 
         let (pref, suff) = span isAlphaNum str in
-        if pref == "false" then TokLit (Boolean False) : lexAll suff
-        else if pref == "true" then TokLit (Boolean True) : lexAll suff
-        else Invalid : lexAll suff
+        let tok = (if pref == "false" then TokLit (Boolean False) 
+                   else if pref == "true" then TokLit (Boolean True)
+                   else Invalid) in
+        tok : lexAll suff
+
+
+------------- PARSER ------------- 
+parseExpr :: [Token] -> Node
+parseExpr [] = Bad
+parseExpr [TokLit n] = Lit n
+parseExpr (TokLit n1 : TokOp b : rest) = BinOp b (Lit n1) (parseExpr rest)
+parseExpr _ = Bad
 
 main :: IO ()
 main = do
     args <- getArgs
     case args of
-        [s] -> print (lexAll s)
+        [s] -> print (parseExpr (lexAll s))
         _ -> putStrLn "wrong"
