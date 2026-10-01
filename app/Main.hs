@@ -27,6 +27,7 @@ data Node
     | BinOp Op Node Node
     | LetIn String Node Node
     | Abs String Node
+    | App Node Node
     | Bad
     deriving (Show)
 
@@ -66,23 +67,30 @@ lexAll str
 
 ------------- PARSER ------------- 
 parse :: [Token] -> Node
-parse s = case (parseExpr s) of
+parse s = case (parseApp s) of
             Just (node, []) -> node
             _ -> Bad
 
+parseApp :: [Token] -> Maybe (Node, [Token])
+parseApp toks = do
+    (expr1, rest1) <- parseExpr toks
+    case (parseExpr rest1) of
+      Just (expr2, rest2) -> Just (App expr1 expr2, rest2)
+      Nothing -> Just (expr1, rest1)
+
 parseExpr :: [Token] -> Maybe (Node, [Token])
 parseExpr (TokLet : TokVar varName : TokEq : rest) = do
-    (varVal, rest2) <- parseExpr rest
+    (varVal, rest2) <- parseApp rest
     case rest2 of
       TokIn : next -> do
-          (body, remaining) <- parseExpr next
+          (body, remaining) <- parseApp next
           Just (LetIn varName varVal body, remaining)
       _ -> Nothing
 parseExpr toks = parseAbs toks
 
 parseAbs :: [Token] -> Maybe (Node, [Token])
 parseAbs (TokVar varName : TokAbs : rest) = do
-    (absBody, rest2) <- parseExpr rest
+    (absBody, rest2) <- parseApp rest
     Just (Abs varName absBody, rest2)
 parseAbs toks = parseBinop toks
 
@@ -91,7 +99,7 @@ parseBinop toks = do
     (left, rest) <- parseAtom toks
     case rest of
         TokOp op : next -> do
-            (right, remaining) <- parseExpr next
+            (right, remaining) <- parseApp next
             Just (BinOp op left right, remaining)
         _ -> Just (left, rest)
 
@@ -103,7 +111,7 @@ parseAtom toks = parseParen toks
 
 parseParen :: [Token] -> Maybe (Node, [Token])
 parseParen (TokLParen : rest) = do
-    (expr, remaining) <- parseExpr rest
+    (expr, remaining) <- parseApp rest
     case remaining of
       TokRParen : [] -> Just (expr, [])
       TokRParen : leftover -> Just (expr, leftover)
