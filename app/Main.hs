@@ -16,6 +16,7 @@ data Token
     | TokEq
     | TokLParen
     | TokRParen
+    | TokAbs
     | Invalid
     deriving (Show)
 
@@ -25,6 +26,7 @@ data Node
     | LitBool Bool
     | BinOp Op Node Node
     | LetIn String Node Node
+    | Abs String Node
     | Bad
     deriving (Show)
 
@@ -48,6 +50,7 @@ lexAll str
     | (head str == '=') =  TokEq : lexAll (tail str)
     | (head str == '(') = TokLParen : lexAll (tail str)
     | (head str == ')') = TokRParen : lexAll (tail str)
+    | (head str == '.') = TokAbs : lexAll (tail str)
     | isSpace (head str) = lexAll (tail str)
     | isDigit (head str) =
         let (pref, suff) = span isDigit str in
@@ -75,7 +78,13 @@ parseExpr (TokLet : TokVar varName : TokEq : rest) = do
           (body, remaining) <- parseExpr next
           Just (LetIn varName varVal body, remaining)
       _ -> Nothing
-parseExpr toks = parseBinop toks
+parseExpr toks = parseAbs toks
+
+parseAbs :: [Token] -> Maybe (Node, [Token])
+parseAbs (TokVar varName : TokAbs : rest) = do
+    (absBody, rest2) <- parseExpr rest
+    Just (Abs varName absBody, rest2)
+parseAbs toks = parseBinop toks
 
 parseBinop :: [Token] -> Maybe (Node, [Token])
 parseBinop toks = do
