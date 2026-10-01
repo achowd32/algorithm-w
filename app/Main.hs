@@ -14,11 +14,14 @@ data Token
     | TokLet
     | TokIn
     | TokEq
+    | TokLParen
+    | TokRParen
     | Invalid
     deriving (Show)
 
 data Node
     = LitInt Int
+    | LitVar String
     | LitBool Bool
     | BinOp Op Node Node
     | LetIn String Node Node
@@ -43,6 +46,8 @@ lexAll str
     | (head str == '|') =  TokOp OR : lexAll (tail str)
     | (head str == '&') =  TokOp AND : lexAll (tail str)
     | (head str == '=') =  TokEq : lexAll (tail str)
+    | (head str == '(') = TokLParen : lexAll (tail str)
+    | (head str == ')') = TokRParen : lexAll (tail str)
     | isSpace (head str) = lexAll (tail str)
     | isDigit (head str) =
         let (pref, suff) = span isDigit str in
@@ -77,14 +82,24 @@ parseBinop toks = do
     (left, rest) <- parseAtom toks
     case rest of
         TokOp op : next -> do
-            (right, remaining) <- parseAtom next
+            (right, remaining) <- parseExpr next
             Just (BinOp op left right, remaining)
-        _ -> Nothing
+        _ -> Just (left, rest)
 
 parseAtom :: [Token] -> Maybe (Node, [Token])
 parseAtom (TokNum n : rest) = Just (LitInt n, rest)
 parseAtom (TokBool b : rest) = Just (LitBool b, rest)
-parseAtom _ = Nothing
+parseAtom (TokVar s : rest) = Just (LitVar s, rest)
+parseAtom toks = parseParen toks
+
+parseParen :: [Token] -> Maybe (Node, [Token])
+parseParen (TokLParen : rest) = do
+    (expr, remaining) <- parseExpr rest
+    case remaining of
+      TokRParen : [] -> Just (expr, [])
+      TokRParen : leftover -> Just (expr, leftover)
+      _ -> Nothing
+parseParen _ = Nothing
 
 main :: IO ()
 main = do
